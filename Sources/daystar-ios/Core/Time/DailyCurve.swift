@@ -37,6 +37,9 @@ public enum DailyCurveGenerator {
         // the day-of-year only feeds the annual orbital correction (~0.02% change per day).
         let dayOfYear = localDateParts(for: dayStart, timeZone: tz).dayOfYear
 
+        // A non-positive step would never advance `t` and would spin forever.
+        let stepSeconds = Double(max(1, timeStepMinutes) * 60)
+
         while t <= dayEnd {
             let position = SolarCalculator.position(at: t, location: location)
             let irradiance = IrradianceCalculator.clearSky(
@@ -64,7 +67,7 @@ public enum DailyCurveGenerator {
 
             points.append(DailyCurvePoint(date: t, value: value))
             previousUVIrradiance = uvEstimate.erythemalIrradiance.wattsPerSquareMeter
-            t = t.addingTimeInterval(Double(timeStepMinutes * 60))
+            t = t.addingTimeInterval(stepSeconds)
         }
 
         return points

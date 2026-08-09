@@ -36,6 +36,7 @@ That builds the dev app, boots the iOS Simulator, installs and launches it. Othe
 | `make help` | list every target |
 | `make doctor` | check toolchain, simulator runtimes and signing identities |
 | `make test` | run the offline solar/UV engine tests |
+| `make check` | tests plus a simulator build (what CI should run) |
 | `make build` | build for the iOS Simulator (ad-hoc signed) |
 | `make assets` | redraw the app icon and compile the asset catalog |
 | `make sign` / `make verify` | re-sign the built app and inspect the signature |
@@ -45,6 +46,10 @@ That builds the dev app, boots the iOS Simulator, installs and launches it. Othe
 
 Useful variables: `DEVICE="iPhone 16 Pro"`, `CONFIG=Release`, `BUNDLE_ID=…`,
 `SIGN_IDENTITY=…`. If no simulator runtime is installed, `make bootstrap-sim` downloads one.
+
+Tests live in the `daystar-ios` Swift package, so SwiftPM is their runner — use `make test`,
+not `xcodebuild test`. The `Daystar` scheme has no test bundle of its own; `xcodebuild test`
+against it errors out rather than reporting a false pass.
 
 The app icon is drawn in code (`Scripts/make-appicon.swift`) rather than checked in as an
 opaque binary, so icon changes stay reviewable in diffs.

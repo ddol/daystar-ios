@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import daystar_ios
 
@@ -38,9 +39,12 @@ private struct CityRow: View {
     let city: City
     let isSelected: Bool
 
-    /// Compared side by side, so each row carries its own live reading.
-    private var reading: SolarReading {
-        SolarReading.make(city: city, date: .now, skinType: .typeII)
+    /// Only the UV headline is shown per row, so this deliberately stops short of a full
+    /// `SolarReading` — solar events and a burn estimate would be computed for every visible
+    /// row and then thrown away. `modeledUVIndex` is nil below the horizon, which is also the
+    /// night signal.
+    private var uvIndex: Double? {
+        UVModel.estimate(at: .now, location: city.location).modeledUVIndex
     }
 
     var body: some View {
@@ -60,9 +64,9 @@ private struct CityRow: View {
                     .font(.subheadline.monospacedDigit())
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(reading.isDaylight ? reading.category.color : .gray)
+                        .fill(uvIndex.map { UVCategory(uvIndex: $0).color } ?? .gray)
                         .frame(width: 7, height: 7)
-                    Text(reading.isDaylight ? "UV \(Fmt.uvIndex(reading.uvIndex))" : "night")
+                    Text(uvIndex.map { "UV \(Fmt.uvIndex($0))" } ?? "night")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }

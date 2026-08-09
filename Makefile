@@ -37,7 +37,7 @@ XCODEBUILD     := xcodebuild
 XCPRETTIFY     := 2>&1 | grep -E "error:|warning:|\*\* [A-Z]+ [A-Z]+" || true
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor test build run sim boot install launch logs assets icon clean clean-all \
+.PHONY: help doctor test check build run sim boot install launch logs assets icon clean clean-all \
         device archive ipa sign verify identities open bootstrap-sim
 
 ## help: show this list
@@ -69,9 +69,14 @@ doctor:
 	@echo "== Signing identities =="
 	@security find-identity -v -p codesigning | sed 's/^/  /' || echo "  none"
 
-## test: run the offline solar/UV engine tests
+## test: run the offline solar/UV engine tests (SwiftPM — see note below)
+# The suite lives in the daystar-ios package, so SwiftPM is its runner. `xcodebuild test
+# -scheme Daystar` has no bundle to run and errors out; it does not report a false pass.
 test:
 	swift test
+
+## check: everything CI should run — engine tests plus a simulator build
+check: test build
 
 ## assets: generate the app icon and compile the asset catalog
 assets: icon

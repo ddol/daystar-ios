@@ -227,6 +227,20 @@ struct ExposureEdgeCaseTests {
         #expect(interval.estimatedErythemalDose.joulesPerSquareMeter > 0)
     }
 
+    @Test func dailyCurveWithNonPositiveStepTerminates() throws {
+        let location = CityDatabase.shared.search("Dublin").first!.location
+        let date = try dateInTimeZone(year: 2026, month: 6, day: 21, hour: 12, minute: 0, timeZone: location.timeZone)
+
+        for step in [0, -15] {
+            let points = DailyCurveGenerator.curve(
+                for: .irradiance, on: date, location: location, timeStepMinutes: step
+            )
+            #expect(!points.isEmpty)
+            // A one-minute floor over a 24-hour day.
+            #expect(points.count <= 24 * 60 + 1)
+        }
+    }
+
     @Test func nightBurnEstimateIsUnavailableRatherThanInstant() throws {
         let location = CityDatabase.shared.search("Dublin").first!.location
         let midnight = try dateInTimeZone(year: 2026, month: 1, day: 15, hour: 0, minute: 30, timeZone: location.timeZone)
