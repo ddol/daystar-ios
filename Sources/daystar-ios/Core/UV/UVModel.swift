@@ -18,10 +18,19 @@ public enum EstimateConfidence: String, Sendable {
 }
 
 public enum UVModel {
-    // Clear-sky proxy coefficients tuned for conservative erythemal weighting from broadband irradiance.
-    private static let uvFractionBase = 0.02
-    private static let uvFractionAmplitude = 0.02
-    private static let uvFractionZenithExponent = 0.35
+    // Fraction of broadband global horizontal irradiance that is erythemally weighted UV.
+    //
+    // Erythemally weighted UV is a very small slice of the broadband shortwave flux: at UVI 11
+    // the erythemal irradiance is only 0.275 W/m² against a clear-sky GHI near 1100 W/m², i.e.
+    // ~2.5e-4. The fraction also grows with sun elevation, because the UVB the erythema action
+    // spectrum weights most heavily is attenuated far more strongly by air mass than the
+    // broadband flux is.
+    //
+    // Calibrated so clear-sky sea-level overhead sun lands near UVI 11, consistent with the
+    // widely used clear-sky relation UVI ≈ 12.5 · cos(zenith)^2.42 at 300 DU ozone.
+    // See SCIENCE.md.
+    private static let uvFractionAtZenith = 2.65e-4
+    private static let uvFractionZenithExponent = 1.4
 
     public static func estimate(
         position: SolarPosition,
@@ -38,7 +47,7 @@ public enum UVModel {
         let cosZenith = max(0.0, cos(position.zenithDegrees * .pi / 180.0))
         // Clear-sky proxy: maps broadband shortwave to erythemally weighted UV.
         // This is a modeled approximation, not an observed UV sensor value.
-        let uvFraction = uvFractionBase + uvFractionAmplitude * pow(cosZenith, uvFractionZenithExponent)
+        let uvFraction = uvFractionAtZenith * pow(cosZenith, uvFractionZenithExponent)
         let erythemalWm2 = max(0, clearSkyIrradiance.globalHorizontal.wattsPerSquareMeter * uvFraction)
         // WHO/ICNIRP erythemal weighting convention uses UVI = Eery * 40.
         let uvIndex = erythemalWm2 * 40.0

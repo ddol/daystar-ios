@@ -1,10 +1,12 @@
 import Foundation
 
-public enum DailyMetric: Sendable {
+public enum DailyMetric: String, Sendable, Hashable, CaseIterable, Identifiable {
     case irradiance
     case relativeUVPotential
     case accumulatedUVDose
     case sunElevation
+
+    public var id: String { rawValue }
 }
 
 public struct DailyCurvePoint: Sendable, Equatable {
@@ -31,9 +33,17 @@ public enum DailyCurveGenerator {
         var cumulativeDose = 0.0
         var previousUVIrradiance: Double?
 
+        // Resolved once: `localDateParts` builds a Calendar and walks the year on every call, and
+        // the day-of-year only feeds the annual orbital correction (~0.02% change per day).
+        let dayOfYear = localDateParts(for: dayStart, timeZone: tz).dayOfYear
+
         while t <= dayEnd {
             let position = SolarCalculator.position(at: t, location: location)
-            let irradiance = IrradianceCalculator.clearSky(at: t, location: location)
+            let irradiance = IrradianceCalculator.clearSky(
+                position: position,
+                elevationMeters: location.elevationMeters,
+                dayOfYear: dayOfYear
+            )
             let uvEstimate = UVModel.estimate(position: position, clearSkyIrradiance: irradiance)
 
             let value: Double

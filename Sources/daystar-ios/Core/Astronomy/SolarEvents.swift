@@ -18,24 +18,28 @@ public enum SolarEventsCalculator {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = tz
 
-        let startOfDay = cal.startOfDay(for: date)
-        let noon = cal.date(byAdding: .hour, value: 12, to: startOfDay) ?? date
-
-        let local = localDateParts(for: noon, timeZone: tz)
-        let gamma = fractionalYear(dayOfYear: local.dayOfYear, localHour: local.localHour)
+        // Anchor every event to a UTC instant rather than to minutes past local midnight.
+        // On a DST-transition day the local day is 23 or 25 hours long, so "minutes past local
+        // midnight" no longer maps onto wall-clock time and every event lands an hour off.
+        let localNoon = localNoonInstant(for: date, calendar: cal)
+        let utc = localDateParts(for: localNoon, timeZone: .gmt)
+        let gamma = fractionalYear(dayOfYear: utc.dayOfYear, localHour: utc.localHour)
 
         let equationOfTime = solarEquationOfTimeMinutes(gamma: gamma)
         let declination = solarDeclinationRadians(gamma: gamma)
 
-        let offsetHours = Double(tz.secondsFromGMT(for: noon)) / 3600.0
-        let solarNoonMinutes = 720.0 - 4.0 * location.longitude - equationOfTime + (offsetHours * 60.0)
+        // Minutes past UTC midnight on the UTC day that contains local noon. Anchoring on that
+        // UTC day (rather than the local date) keeps far-east/far-west zones such as
+        // Pacific/Kiritimati on the correct calendar day.
+        let solarNoonMinutes = 720.0 - 4.0 * location.longitude - equationOfTime
+        let utcDayStart = utcMidnight(containing: localNoon)
 
         let sunrise = eventTime(
             solarNoonMinutes: solarNoonMinutes,
             altitudeDegrees: -0.833,
             declinationRadians: declination,
             latitudeDegrees: location.latitude,
-            dayStart: startOfDay,
+            dayStart: utcDayStart,
             rise: true
         )
         let sunset = eventTime(
@@ -43,7 +47,7 @@ public enum SolarEventsCalculator {
             altitudeDegrees: -0.833,
             declinationRadians: declination,
             latitudeDegrees: location.latitude,
-            dayStart: startOfDay,
+            dayStart: utcDayStart,
             rise: false
         )
         let civilDawn = eventTime(
@@ -51,7 +55,7 @@ public enum SolarEventsCalculator {
             altitudeDegrees: -6.0,
             declinationRadians: declination,
             latitudeDegrees: location.latitude,
-            dayStart: startOfDay,
+            dayStart: utcDayStart,
             rise: true
         )
         let civilDusk = eventTime(
@@ -59,7 +63,7 @@ public enum SolarEventsCalculator {
             altitudeDegrees: -6.0,
             declinationRadians: declination,
             latitudeDegrees: location.latitude,
-            dayStart: startOfDay,
+            dayStart: utcDayStart,
             rise: false
         )
 
@@ -68,7 +72,7 @@ public enum SolarEventsCalculator {
             altitudeDegrees: 6.0,
             declinationRadians: declination,
             latitudeDegrees: location.latitude,
-            dayStart: startOfDay,
+            dayStart: utcDayStart,
             rise: true
         )
         let eveningGoldenStart = eventTime(
@@ -76,12 +80,12 @@ public enum SolarEventsCalculator {
             altitudeDegrees: 6.0,
             declinationRadians: declination,
             latitudeDegrees: location.latitude,
-            dayStart: startOfDay,
+            dayStart: utcDayStart,
             rise: false
         )
 
         return SolarEvents(
-            solarNoon: startOfDay.addingTimeInterval(solarNoonMinutes * 60.0),
+            solarNoon: utcDayStart.addingTimeInterval(solarNoonMinutes * 60.0),
             sunrise: sunrise,
             sunset: sunset,
             civilDawn: civilDawn,
@@ -92,6 +96,25 @@ public enum SolarEventsCalculator {
             goldenHourEveningEnd: sunset
         )
     }
+}
+
+/// 12:00 local wall-clock on the calendar day containing `date`.
+///
+/// Built from date components rather than `startOfDay + 12h` so a DST shift earlier in the day
+/// does not push the result to 11:00 or 13:00.
+private func localNoonInstant(for date: Date, calendar: Calendar) -> Date {
+    var comps = calendar.dateComponents([.year, .month, .day], from: date)
+    comps.hour = 12
+    comps.minute = 0
+    comps.second = 0
+    return calendar.date(from: comps) ?? date
+}
+
+/// Midnight UTC on the UTC calendar day containing `instant`.
+private func utcMidnight(containing instant: Date) -> Date {
+    var utcCalendar = Calendar(identifier: .gregorian)
+    utcCalendar.timeZone = .gmt
+    return utcCalendar.startOfDay(for: instant)
 }
 
 private func eventTime(

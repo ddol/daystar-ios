@@ -14,10 +14,9 @@ public enum ExposureCalculator {
         end: Date,
         timeStepSeconds: TimeInterval = 300
     ) -> ExposureInterval {
-        precondition(end >= start, "end must be >= start")
-
-        let duration = end.timeIntervalSince(start)
-        if duration == 0 {
+        // An inverted or empty range is a reachable UI state (dragging a time range backwards),
+        // so report zero exposure rather than trapping.
+        if end <= start {
             return ExposureInterval(
                 start: start,
                 end: end,
@@ -26,6 +25,8 @@ public enum ExposureCalculator {
             )
         }
 
+        // A non-positive step would never advance `current` and would spin forever.
+        let step = max(1.0, timeStepSeconds)
         var current = start
         var totalSolarJm2 = 0.0
         var totalErythemalJm2 = 0.0
@@ -38,7 +39,7 @@ public enum ExposureCalculator {
         var uvA = UVModel.estimate(position: startPosition, clearSkyIrradiance: irradianceA)
 
         while current < end {
-            let next = min(current.addingTimeInterval(timeStepSeconds), end)
+            let next = min(current.addingTimeInterval(step), end)
             let dt = next.timeIntervalSince(current)
             let positionB = SolarCalculator.position(at: next, location: location)
             let irradianceB = IrradianceCalculator.clearSky(
