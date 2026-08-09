@@ -30,6 +30,12 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+.swiftpm/
+
+# Local build output (make build / make archive / make ipa)
+build/
+DerivedData/
+*.xcarchive
 
 # CocoaPods
 #
